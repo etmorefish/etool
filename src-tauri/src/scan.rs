@@ -7,18 +7,25 @@ use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime};
 use walkdir::{DirEntry, WalkDir};
 
-#[derive(Debug, Clone,Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FileSystemItem {
     pub path: String,
     pub size: u64,
     pub size_str: String,
     pub creation_date: SystemTime,
     pub modified_date: SystemTime,
-    pub is_file: bool,  // 用于区分文件和文件夹
+    pub is_file: bool, // 用于区分文件和文件夹
 }
 
 impl FileSystemItem {
-    fn new(path: String, size: u64, size_str: String, creation_date: SystemTime, modified_date: SystemTime, is_file: bool) -> Self {
+    fn new(
+        path: String,
+        size: u64,
+        size_str: String,
+        creation_date: SystemTime,
+        modified_date: SystemTime,
+        is_file: bool,
+    ) -> Self {
         FileSystemItem {
             path,
             size,
@@ -86,10 +93,7 @@ fn human_readable_size(size: u64) -> String {
 }
 
 // 打印大文件（超过指定大小的文件）
-fn scan(
-    dir: &Path,
-    size_limit: u64,
-) -> Result<Vec<FileSystemItem>, String> {
+fn scan(dir: &Path, size_limit: u64) -> Result<Vec<FileSystemItem>, String> {
     // let mut item_list = Vec::new();
     let item_list = Arc::new(Mutex::new(Vec::new())); // 使用 Arc<Mutex<Vec>> 来包装 item_list
 
@@ -108,8 +112,15 @@ fn scan(
         // 对于文件，检查其大小是否满足条件
         if file_size >= size_limit {
             if entry.file_type().is_file() {
-                let file_item = FileSystemItem::new(file_path, file_size, file_size_str, creation_date, modified_date, true); // file_path 被移动
-                // item_list.push(file_item);
+                let file_item = FileSystemItem::new(
+                    file_path,
+                    file_size,
+                    file_size_str,
+                    creation_date,
+                    modified_date,
+                    true,
+                ); // file_path 被移动
+                   // item_list.push(file_item);
                 let mut list = item_list.lock().unwrap(); // 锁定 Mutex，获取可变引用
                 list.push(file_item); // 修改 item_list
             }
@@ -120,17 +131,26 @@ fn scan(
             let file_path = entry.path().to_string_lossy().to_string(); // file_path 在此处转移所有权
 
             let folder_size = get_folder_size(entry.path()).unwrap_or(0);
-            let folder_size_str = human_readable_size(file_size);
+            if folder_size >= size_limit {
+                let folder_size_str = human_readable_size(file_size);
 
-            let file_item = FileSystemItem::new(file_path, folder_size, folder_size_str, creation_date, modified_date, false); // file_path 被移动
-            // item_list.push(file_item);
-            let mut list = item_list.lock().unwrap(); // 锁定 Mutex，获取可变引用
+                let file_item = FileSystemItem::new(
+                    file_path,
+                    folder_size,
+                    folder_size_str,
+                    creation_date,
+                    modified_date,
+                    false,
+                ); // file_path 被移动
+                   // item_list.push(file_item);
+                let mut list = item_list.lock().unwrap(); // 锁定 Mutex，获取可变引用
                 list.push(file_item); // 修改 item_list
+            }
         }
     });
 
-       // 等待所有并行任务完成后，返回 item_list
-       let item_list = Arc::try_unwrap(item_list).unwrap().into_inner().unwrap();
+    // 等待所有并行任务完成后，返回 item_list
+    let item_list = Arc::try_unwrap(item_list).unwrap().into_inner().unwrap();
     Ok(item_list)
 }
 
@@ -157,22 +177,32 @@ pub fn analyze_directory(path: String, size_limit: u64) -> Result<Vec<FileSystem
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
-    println!("Hello, {:?}!",name);
+    println!("Hello, {:?}!", name);
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn test_analyze_directory() {
-    //     let path = "/Users/leimao/Documents/nfclean";
-    //     let size_limit = 1000; // 设置一个大小限制，例如1000字节
-    //     let result = analyze_directory(path.to_string(), size_limit);
-    //     if let Ok((files, folders)) = result {
-    //         println!("Large files: {:?}", files);
-    //         println!("Large folders: {:?}", folders);
-    //     }
-    //     // assert!(result.is_ok());
-    // }
+    #[test]
+    fn test_analyze_directory() {
+        let path = "/Users/leimao/Documents/nfclean";
+        let path = r"C:\Users\maol\Documents\githubProject\Tkinter-Designer";
+        let size_limit = 1000 * 1024; // 设置一个大小限制，例如1000字节
+        let result = analyze_directory(path.to_string(), size_limit);
+        // 打印出来
+        match result {
+            Ok(files) => {
+                for file in files.clone().into_iter().filter(|f| f.is_file) {
+                    println!("{:?} - {:?} -{}", file.path, file.size_str, file.is_file);
+                }
+                println!("Total files: {}", &files.len());
+            }
+            Err(e) => {
+                println!("Error: {}", e);
+            }
+        }
+
+        // assert!(result.is_ok());
+    }
 }
