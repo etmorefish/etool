@@ -154,6 +154,49 @@ fn scan(dir: &Path, size_limit: u64) -> Result<Vec<FileSystemItem>, String> {
     Ok(item_list)
 }
 
+#[tauri::command]
+fn delete_path(path: &str) -> io::Result<()> {
+    let path = Path::new(path);
+
+    // 判断路径是否存在
+    if !path.exists() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "Path does not exist"));
+    }
+
+    // 如果是文件，则删除文件
+    if path.is_file() {
+        fs::remove_file(path)?;
+        println!("File '{}' deleted successfully!", path.display());
+    }
+    // 如果是目录，则删除目录（递归删除非空目录）
+    else if path.is_dir() {
+        delete_non_empty_dir(path)?;
+        println!("Directory '{}' and all its contents deleted successfully!", path.display());
+    }
+    
+    Ok(())
+}
+
+
+fn delete_non_empty_dir(path: &Path) -> io::Result<()> {
+    // 读取目录内容
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let entry_path = entry.path();
+
+        if entry_path.is_dir() {
+            delete_non_empty_dir(&entry_path)?; // 递归删除子目录
+        } else {
+            fs::remove_file(entry_path)?; // 删除文件
+        }
+    }
+
+    // 删除目录本身
+    fs::remove_dir(path)?;
+    Ok(())
+}
+
+
 // Tauri 命令：分析目录
 #[tauri::command]
 pub fn analyze_directory(path: String, size_limit: u64) -> Result<Vec<FileSystemItem>, String> {
@@ -188,6 +231,7 @@ mod tests {
     fn test_analyze_directory() {
         let path = "/Users/leimao/Documents/nfclean";
         let path = r"C:\Users\maol\Documents\githubProject\Tkinter-Designer";
+        // let path = r"C:\Users\maol\Downloads";
         let size_limit = 1000 * 1024; // 设置一个大小限制，例如1000字节
         let result = analyze_directory(path.to_string(), size_limit);
         // 打印出来
@@ -204,5 +248,14 @@ mod tests {
         }
 
         // assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_delete_directory() {
+    let path = r"C:\Users\maol\Documents\githubProject\Tkinter-Designer\eeee";
+    match delete_path(path) {
+        Ok(()) => println!("Deletion successful!"),
+        Err(e) => println!("Error: {}", e),
+    }
     }
 }

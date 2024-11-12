@@ -93,35 +93,34 @@ function renderFileList(fileList) {
 
   // 如果文件列表为空，显示信息
   if (fileList.length === 0) {
-    fileListContainer.innerHTML = '<p>No files found matching the criteria.</p>';
+    fileListContainer.innerHTML = '<p class="text-gray-500">No files found matching the criteria.</p>';
     return;
   }
 
   // 遍历返回的文件列表，生成 HTML 元素
   fileList.forEach((item) => {
     const fileElement = document.createElement('div');
-    fileElement.classList.add('file-item');
-    fileElement.style.display = 'flex';  // 使用 flexbox 来使图标和文件描述在同一行
-    fileElement.style.alignItems = 'center';  // 垂直居中对齐
+    fileElement.classList.add('flex', 'items-center', 'space-x-4', 'py-2', 'border-b', 'border-gray-200');
 
     // 创建一个文件/文件夹项的描述
     const fileDesc = document.createElement('p');
     fileDesc.textContent = `${item.path} - ${item.size_str}`;
-    fileDesc.style.marginLeft = '10px'; // 图标和描述之间的间距
+    fileDesc.classList.add('text-gray-800', 'text-sm');  // 使用 Tailwind 类来控制文本颜色和大小
 
     // 勾选框
     const checkBox = document.createElement('input');
     checkBox.type = 'checkbox';
     checkBox.value = item.file_path; // 存储文件路径，以便删除时使用
+    checkBox.classList.add('h-5', 'w-5', 'text-blue-600', 'focus:ring-0');  // 勾选框样式
 
     // 创建文件夹图标
     const icon = document.createElement('span');
+    icon.classList.add('text-xl', 'mr-3');  // 使用更大图标并调整间距
     if (!item.is_file) {
       icon.textContent = '📁'; // 文件夹图标
     } else {
       icon.textContent = '📄'; // 文件图标
     }
-    icon.style.marginRight = '10px'; // 图标和文本之间的间距
 
     // 将图标、勾选框和描述添加到文件项中
     fileElement.appendChild(icon);
@@ -131,3 +130,4 @@ function renderFileList(fileList) {
     fileListContainer.appendChild(fileElement);
   });
 }
+
